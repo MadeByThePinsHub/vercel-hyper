@@ -1,15 +1,56 @@
-name: my-snap-name # you probably want to 'snapcraft register <name>'
-version: '0.1' # just for humans, typically '1.2+git' or '1.3.2'
-summary: Single-line elevator pitch for your amazing snap # 79 char long summary
+name: vercel-hyper
+version: '3.0.2' # match version to the upstream version
+summary: An terminal built on web technologies.
+# copied from https://github.com/vercel/hyper#project-goals
 description: |
-  This is my-snap's description. You have a paragraph or two to tell the
-  most important story about your snap. Keep it under 100 words though,
-  we live in tweetspace and your description wants to look good in the snap
-  store.
+  The goal of the project is to create a beautiful and extensible experience for command-line interface users, built on open web standards. In the beginning, our focus will be primarily around speed, stability and the development of the correct API for extension authors.
 
 confinement: devmode # use 'strict' once you have the right plugs and slots
 
+# mostly copied from snapcrafters/atom, but we need to edit these
+# for Hyper-specific stuff. Pardon the interpution
 parts:
-  my-part:
-    # See 'snapcraft plugins'
-    plugin: nil
+  hyper:
+    plugin: dump
+    source: https://releases.hyper.is/download/deb
+    source-type: deb
+    override-build: |
+      DEB_API="https://releases.hyper.is/download/deb"
+      DEB_URL=$(curl -w "%{url_effective}\n" -I -L -s -S "${DEB_API}" -o /dev/null)
+      VERSION=$(echo "${DEB_URL}" | cut -d'/' -f4 | tr -d 'v')
+      echo $VERSION > $SNAPCRAFT_STAGE/version
+      snapcraftctl build
+      sed -i 's|Icon=Hyper|Icon=${SNAP}/usr/share/icons/hicolor/512x512/apps/|g' $SNAPCRAFT_PART_INSTALL/usr/share/applications/hyper.desktop
+      snapcraftctl set-version "$(cat $SNAPCRAFT_STAGE/version)"
+    build-packages:
+      - curl
+    stage-packages:
+      - fcitx-frontend-gtk3
+      - libappindicator3-1
+      - libasound2
+      - libcurl4
+      - libgconf-2-4
+      - libgtk-3-0
+      - libnotify4
+      - libnspr4
+      - libnss3
+      - libpcre3
+      - libpulse0
+      - libxss1
+      - libsecret-1-0
+      - libxtst6
+      - libxkbfile1
+  launcher:
+    plugin: dump
+    source: files/
+    override-build: |
+      snapcraftctl build
+      chmod +x $SNAPCRAFT_PART_INSTALL/bin/launcher
+apps:
+  atom:
+    command-chain: 
+      - bin/launcher
+    command: opt/Hyper/hyper
+    environment:
+      # Fallback to XWayland if running in a Wayland session.
+      DISABLE_WAYLAND: 1
